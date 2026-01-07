@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Logowanie - miniSIEM{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white text-center">
+                    <h4 class="mb-0">🛡️ Logowanie do SIEM</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Nazwa użytkownika</label>
+                            {{ form.username(class="form-control", placeholder="Wpisz login...") }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Hasło</label>
+                            {{ form.password(class="form-control", placeholder="Wpisz hasło...") }}
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Zaloguj się</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

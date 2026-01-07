@@ -13,3 +13,5 @@ instance/
 # Pliki tymczasowe Pythona
 __pycache__/
 *.pyc
+
+test.py

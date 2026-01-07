@@ -15,15 +15,21 @@ def login():
     if form.validate_on_submit():
         # TODO: ZADANIE 1 - LOGOWANIE
         # 1. Pobierz użytkownika z bazy danych na podstawie form.username.data
+        user = User.query.filter_by(username=form.username.data).first()
         # 2. Sprawdź hasło używając metody user.check_password(form.password.data)
+        if user and user.check_password(form.password.data):
         # 3. Jeśli poprawne:
+            login_user(user)
+            flash('Zalogowano pomyślnie!', 'success')
+            return redirect(url_for('ui.config'))
         #    - użyj funkcji login_user(user)
         #    - wyświetl flash('Zalogowano pomyślnie!', 'success')
         #    - przekieruj do ui.config
         # 4. Jeśli błędne:
         #    - wyświetl flash('Błąd logowania', 'danger')
+        else:
+            flash('Błąd logowania', 'danger')
         
-        flash('Mechanizm logowania nie jest jeszcze zaimplementowany!', 'warning')
         # pass
 
     return render_template('login.html', form=form)
