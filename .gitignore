@@ -1,0 +1,15 @@
+# Środowisko wirtualne
+venv/
+.venv/
+
+# Dane i logi (Forensics)
+instance/
+*.db
+
+# Sekrety
+.env
+.flaskenv
+
+# Pliki tymczasowe Pythona
+__pycache__/
+*.pyc
