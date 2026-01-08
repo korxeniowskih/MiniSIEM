@@ -151,12 +151,12 @@ def fetch_logs(host_id):
 
             with RemoteClient(host=host.ip_address, user=ssh_user, port=ssh_port, key_file=ssh_key) as client:
                 # KROK 3: Pobranie przyrostowe (przekazujemy last_fetch)
-                logs = LogCollector.get_linux_logs(client, last_fetch=log_source.last_fetch)
+                logs = LogCollector.get_linux_logs(client, last_fetch_time=log_source.last_fetch)
 
         elif host.os_type == "WINDOWS":
             with WinClient() as client:
                 # KROK 3: Pobranie przyrostowe dla Windows
-                logs = LogCollector.get_windows_logs(client, last_fetch=log_source.last_fetch)
+                logs = LogCollector.get_windows_logs(client, last_fetch_time=log_source.last_fetch)
         
         else:
             return jsonify({"error": f"Nieobsługiwany system: {host.os_type}"}), 400
