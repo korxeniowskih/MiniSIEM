@@ -169,7 +169,7 @@ def fetch_logs(host_id):
 
         # KROK 4: Zapis do pliku Parquet (Forensics)
         # To zwróci nazwę pliku, np. "host_1_20250108_120000.parquet"
-        filename = DataManager.save_logs_to_parquet(logs, host.id)
+        filename, _ = DataManager.save_logs_to_parquet(logs, host.id)
 
         # KROK 5: Aktualizacja stanu (Timestamp)
         now = datetime.now(timezone.utc)
