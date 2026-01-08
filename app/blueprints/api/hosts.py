@@ -178,7 +178,6 @@ def fetch_logs(host_id):
         # KROK 6: Rejestracja w Archiwum (Baza SQL wie, że plik istnieje)
         new_archive = LogArchive(
             host_id=host.id,
-            log_source_id=log_source.id,
             filename=filename,
             record_count=len(logs),
             timestamp=now
@@ -233,10 +232,12 @@ def fetch_logs(host_id):
 #     pass
 
 
+# --- REJESTR IP (Threat Intel) ---
+
 @api_bp.route("/ips", methods=["GET"])
 @login_required
 def get_ips():
-    # Pobieramy wszystkie IP posortowane od najnowszego
+    # Pobieramy wszystkie IP
     ips = IPRegistry.query.order_by(IPRegistry.last_seen.desc()).all()
     return jsonify([ip.to_dict() for ip in ips]), 200
 
@@ -247,17 +248,16 @@ def add_ip():
     if not data or 'ip_address' not in data:
         return jsonify({"error": "Brak adresu IP"}), 400
     
-    # Sprawdzamy czy IP już istnieje, aby uniknąć duplikatów
+    # Sprawdzamy czy IP już istnieje
     if IPRegistry.query.filter_by(ip_address=data['ip_address']).first():
         return jsonify({"error": "To IP jest już w rejestrze"}), 409
-
+    
     new_ip = IPRegistry(
         ip_address=data['ip_address'],
-        description=data.get('description', ''),
-        status=data.get('status', 'black') # Domyślnie czarna lista
+        status=data.get('status', 'black') # Domyślnie 'black' lub 'BANNED'
     )
     db.session.add(new_ip)
-    db.session.commit() # Pamiętaj o commit
+    db.session.commit()
     return jsonify(new_ip.to_dict()), 201
 
 @api_bp.route("/ips/<int:ip_id>", methods=["PUT"])
@@ -266,9 +266,9 @@ def update_ip(ip_id):
     ip_entry = IPRegistry.query.get_or_404(ip_id)
     data = request.get_json()
     
-    # Pozwalamy na edycję opisu i statusu (white/black)
-    if 'description' in data: ip_entry.description = data['description']
-    if 'status' in data: ip_entry.status = data['status']
+    # Edytujemy tylko status (bo opisu nie ma w bazie)
+    if 'status' in data:
+        ip_entry.status = data['status']
     
     db.session.commit()
     return jsonify(ip_entry.to_dict()), 200
@@ -287,6 +287,5 @@ def delete_ip(ip_id):
 @api_bp.route("/alerts", methods=["GET"])
 @login_required
 def get_recent_alerts():
-    # Zwracamy 20 ostatnich alertów posortowanych malejąco po dacie
     alerts = Alert.query.order_by(Alert.timestamp.desc()).limit(20).all()
     return jsonify([a.to_dict() for a in alerts]), 200

@@ -64,6 +64,13 @@ class IPRegistry(db.Model):
     ip_address = db.Column(db.String(50), unique=True, nullable=False)
     status = db.Column(db.String(20), default='UNKNOWN') # TRUSTED, BANNED, UNKNOWN
     last_seen = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    def to_dict(self):              
+        return {
+            'id': self.id,
+            'ip_address': self.ip_address,
+            'status': self.status,
+            'last_seen': self.last_seen.strftime('%Y-%m-%d %H:%M:%S') if self.last_seen else '-'
+        }
 
 class Alert(db.Model):
     __tablename__ = 'alerts'

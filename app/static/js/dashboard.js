@@ -93,8 +93,8 @@ async function handleFetchLogs(host, btn) {
 
     try {
         const result = await triggerLogFetch(host.id);
-        if (result.alerts_generated > 0) {
-            btn.innerHTML = '⚠️ ' + result.alerts_generated;
+        if (result.alerts > 0) {
+            btn.innerHTML = '⚠️ ' + result.alerts;
             btn.classList.remove('btn-outline-dark');
             btn.classList.add('btn-danger');
         } else {
