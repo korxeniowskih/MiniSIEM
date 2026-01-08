@@ -86,7 +86,7 @@ class LogAnalyzer:
                 source_ip=ip,
                 severity=severity,
                 message=message,
-                timestamp=current_time
+                timestamp=row.get('timestamp')
             )
             # 6. Dodaj do sesji (db.session.add) i zwiększ licznik alerts_created.
             

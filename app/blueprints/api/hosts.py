@@ -163,7 +163,7 @@ def fetch_logs(host_id):
 
         # Jeśli brak nowych logów, aktualizujemy tylko czas sprawdzenia i kończymy
         if not logs:
-            log_source.last_fetch = datetime.now(timezone.utc)
+            log_source.last_fetch = datetime.now()
             db.session.commit()
             return jsonify({"message": "Brak nowych logów", "count": 0, "alerts": 0}), 200
 
@@ -172,7 +172,7 @@ def fetch_logs(host_id):
         filename, _ = DataManager.save_logs_to_parquet(logs, host.id)
 
         # KROK 5: Aktualizacja stanu (Timestamp)
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         log_source.last_fetch = now
 
         # KROK 6: Rejestracja w Archiwum (Baza SQL wie, że plik istnieje)
