@@ -77,3 +77,5 @@ Zintegrowano interfejs użytkownika z nowym API, aby dane o zagrożeniach były 
 * Zaimplementowano wizualizację powagi alertów:
     * **Czerwony wiersz:** Status `CRITICAL` (atak z zablokowanego IP).
     * **Żółty wiersz:** Status `WARNING` (podejrzane zdarzenie z nieznanego IP).
+
+## WYMAGA ADMINA BY POBIERAC Z SECURITY

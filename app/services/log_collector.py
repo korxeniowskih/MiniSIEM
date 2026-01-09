@@ -1,7 +1,8 @@
 # app/services/log_collector.py
 import re
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+
 class LogCollector:
     """
     Pobiera i normalizuje logi z różnych systemów (Linux/Windows).
@@ -120,7 +121,6 @@ class LogCollector:
         
         if last_fetch_time:
             # Formatowanie daty dla PowerShell: 'yyyy-MM-dd HH:mm:ss'
-            last_fetch_time += timedelta(seconds=1)  # Unikamy duplikatów
             ts_str = last_fetch_time.strftime('%Y-%m-%d %H:%M:%S')
             # StartTime musi być rzutowane na [datetime]
             filter_script = f"@{{LogName='Security'; Id=4625; StartTime=[datetime]'{ts_str}'}}"
@@ -174,9 +174,9 @@ class LogCollector:
                 
                 # Konwersja daty (String -> Datetime)
                 try:
-                    timestamp = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")(timezone.utc)
+                    timestamp = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
                 except (ValueError, TypeError):
-                    timestamp = datetime.now(timezone.utc)
+                    timestamp = datetime.now()
 
                 # Normalizacja IP ("-" oznacza logowanie lokalne)
                 if not ip or ip == '-':
