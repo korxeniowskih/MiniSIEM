@@ -12,9 +12,11 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Konfiguracja SSH (Domyślne dla Vagranta)
-    SSH_DEFAULT_USER = os.getenv('SSH_DEFAULT_USER', 'vagrant')
-    SSH_DEFAULT_PORT = int(os.getenv('SSH_DEFAULT_PORT', 2222))
-    SSH_KEY_FILE = os.getenv('SSH_KEY_FILE', '') 
+    # Zmienione na SSH haslem do Kali na Vmware 
+    SSH_DEFAULT_USER = os.getenv('SSH_DEFAULT_USER', 'kali')
+    SSH_DEFAULT_PORT = int(os.getenv('SSH_DEFAULT_PORT', 22))
+    SSH_PASSWORD = os.getenv('SSH_PASSWORD', 'kali')
+    # SSH_KEY_FILE = os.getenv('SSH_KEY_FILE', '') 
 
     # Folder na logi (Parquet)
     STORAGE_FOLDER = Path.cwd() / 'storage' # Domyślny folder na logi

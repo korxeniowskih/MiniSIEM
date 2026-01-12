@@ -14,7 +14,7 @@ class LogCollector:
     LINUX_PATTERNS = {
         'failed_password': re.compile(r"Failed password for (?:invalid user )?([\w.-]+) from ([\d.]+)"),
         'invalid_user': re.compile(r"Invalid user ([\w.-]+) from ([\d.]+)"),
-        'sudo': re.compile(r"sudo:\s+([a-zA-Z0-9._-]+)\s*:"),
+        'sudo': re.compile(r"([\w.-]+)\s*:\s+.*COMMAND=(.+)")
     }
 
     # =========================================================================
@@ -25,20 +25,22 @@ class LogCollector:
         logs = []
         
         # Budowanie komendy: pobierz JSON z journalctl
-        cmd = "sudo journalctl -u ssh -o json --no-pager"
+        cmd = "journalctl -o json --no-pager" #usuniete -u ssh bo w tym wypadku nie widzi sudo
         
         if last_fetch_time:
             since_str = last_fetch_time.strftime("%Y-%m-%d %H:%M:%S")
             cmd += f' --since "{since_str}"'
+            # cmd += f' --since "30 minutes ago"'  # debug
         else:
             cmd += ' --since "7 days ago"' # Domyślny zasięg na start
 
         print(f"DEBUG [Linux]: Executing {cmd}")
         
         try:
-            stdout, stderr = ssh_client.run(cmd)
+            stdout, stderr = ssh_client.run(f"{cmd}")
             
             if not stdout:
+                print("No Linux logs retrieved.")
                 return []
 
             for line in stdout.splitlines():
@@ -47,15 +49,18 @@ class LogCollector:
                     # Parsowanie JSON z journald
                     entry = json.loads(line)
                     message = entry.get('MESSAGE', '')
+                    comm = entry.get("_COMM", "") # dodane bo nie lapie sudo w message
                     
                     # Konwersja czasu (mikrosekundy -> datetime)
                     ts_micro = int(entry.get('__REALTIME_TIMESTAMP', 0))
                     timestamp = datetime.fromtimestamp(ts_micro / 1_000_000)
 
                     # Analiza treści (Logika Regex)
-                    parsed = LogCollector._parse_linux_message(message, timestamp)
+                    parsed = LogCollector._parse_linux_message(message, timestamp, comm)
+                    
                     if parsed:
                         logs.append(parsed)
+                        print(comm)
 
                 except json.JSONDecodeError:
                     continue
@@ -68,7 +73,7 @@ class LogCollector:
         return logs
 
     @staticmethod
-    def _parse_linux_message(message, timestamp):
+    def _parse_linux_message(message, timestamp, comm):
         # Helper do sprawdzania Regexów
         
         # 1. Failed Password
@@ -96,16 +101,19 @@ class LogCollector:
             }
 
         # 3. Sudo
-        match = LogCollector.LINUX_PATTERNS['sudo'].search(message)
-        if match:
-             return {
-                'timestamp': timestamp,
-                'alert_type': 'SUDO_USAGE',
-                'source_ip': 'LOCAL',
-                'user': match.group(1),
-                'message': message,
-                'raw_log': message
-            }
+        if comm == "sudo":
+                print("DEBUG: Parsing sudo message:", message)
+                m = LogCollector.LINUX_PATTERNS['sudo'].search(message)
+                print(m)
+                if m:
+                    return {
+                        'timestamp': timestamp,
+                        'alert_type': 'SUDO_USAGE',
+                        'source_ip': "LOCAL", # w logach sudo nie ma ip
+                        'user': m.group(1),
+                        'message': message,
+                        'raw_log': message
+                    }
         return None
 
  # =========================================================================

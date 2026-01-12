@@ -58,11 +58,11 @@ def update_host(host_id):
 @login_required
 def get_ssh_info(host_id):
     host = Host.query.get_or_404(host_id)
-    ssh_user = current_app.config.get("SSH_DEFAULT_USER", "vagrant")
-    ssh_port = current_app.config.get("SSH_DEFAULT_PORT", 2222)
-    ssh_key = current_app.config.get("SSH_KEY_FILE")
+    ssh_user = current_app.config.get("SSH_DEFAULT_USER", "kali")
+    ssh_port = current_app.config.get("SSH_DEFAULT_PORT", 22)
+    ssh_password = current_app.config.get("SSH_PASSWORD", "kali")
     try:
-        with RemoteClient(host=host.ip_address, user=ssh_user, port=ssh_port, key_file=ssh_key) as remote:
+        with RemoteClient(host=host.ip_address, user=ssh_user, port=ssh_port, password=ssh_password) as remote:
             ram_out, _ = remote.run("free -m | grep Mem | awk '{print $7}'")
             disk_percentage, _ = remote.run("df -h | grep '/$' | awk '{print $5}'")
             if not disk_percentage: disk_percentage, _ = remote.run("df -h | grep '/dev/sda1' | awk '{print $5}'")
@@ -145,11 +145,11 @@ def fetch_logs(host_id):
         # KROK 1 & 2: Wybór klienta w zależności od systemu (LINUX / WINDOWS)
         if host.os_type == "LINUX":
             # Pobieramy dane do SSH z konfiguracji aplikacji
-            ssh_user = current_app.config.get("SSH_DEFAULT_USER", "vagrant")
-            ssh_port = current_app.config.get("SSH_DEFAULT_PORT", 2222)
-            ssh_key = current_app.config.get("SSH_KEY_FILE")
+            ssh_user = current_app.config.get("SSH_DEFAULT_USER", "kali")
+            ssh_port = current_app.config.get("SSH_DEFAULT_PORT", 22)
+            ssh_password = current_app.config.get("SSH_PASSWORD", "kali")
 
-            with RemoteClient(host=host.ip_address, user=ssh_user, port=ssh_port, key_file=ssh_key) as client:
+            with RemoteClient(host=host.ip_address, user=ssh_user, port=ssh_port, password=ssh_password) as client:
                 # KROK 3: Pobranie przyrostowe (przekazujemy last_fetch)
                 logs = LogCollector.get_linux_logs(client, last_fetch_time=log_source.last_fetch)
 
