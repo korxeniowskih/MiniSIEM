@@ -79,3 +79,78 @@ Zintegrowano interfejs użytkownika z nowym API, aby dane o zagrożeniach były 
     * **Żółty wiersz:** Status `WARNING` (podejrzane zdarzenie z nieznanego IP).
 
 ## WYMAGA ADMINA BY POBIERAC Z SECURITY
+
+## 5. Finalne Poprawki i Uruchomienie (Etap 4)
+
+W ostatniej fazie dokonano kluczowych poprawek integrujących wszystkie komponenty oraz dostosowano konfigurację do środowiska laboratoryjnego (Kali Linux).
+
+### Backend (`app/blueprints/api/hosts.py`)
+* **Naprawa błędu ETL (`fetch_logs`):** Poprawiono obsługę wartości zwracanej przez `DataManager.save_logs_to_parquet`. Funkcja zwraca teraz krotkę `(filename, count)`, co wcześniej powodowało błąd SQL `type 'tuple' is not supported`. Zastosowano rozpakowanie zmiennych: `filename, _ = ...`.
+* **Implementacja API Rejestru IP:** Uzupełniono brakujące endpointy:
+    * `GET /ips`: Zwraca listę zbanowanych adresów.
+    * `POST /ips`: Dodaje nowe IP do czarnej listy (domyślnie status 'black').
+    * `PUT /ips/<id>`: Pozwala zmienić status.
+    * `DELETE /ips/<id>`: Usuwa wpis z rejestru.
+* **Zmiana Konfiguracji SSH:** Przełączono domyślne uwierzytelnianie z kluczy SSH (Vagrant) na hasło, dostosowując system do maszyny wirtualnej Kali Linux (`user: kali`, `pass: SSH_PASSWORD z .env`).
+
+### Log Collector (`app/services/log_collector.py`)
+* **Ulepszone Regexy dla Linuxa:** Zaktualizowano wzorzec dla `sudo`, aby poprawnie wyciągał użytkownika i komendę.
+* **Zmiana komendy źródłowej:** Zmieniono `journalctl -u ssh` na ogólne `journalctl`, aby wyłapywać również zdarzenia `sudo` (które nie są podpinane pod unit ssh).
+* **Parsowanie JSON:** Dodano obsługę pola `_COMM` z logów systemd, co pozwala precyzyjniej identyfikować procesy.
+
+### Frontend (`admin.js` i `dashboard.js`)
+* **Panel Administratora:** Odkomentowano i aktywowano sekcję zarządzania "Threat Intel" (Rejestr IP). Administrator może teraz wyklikać dodanie adresu IP do czarnej listy.
+* **Naprawa Licznika Alertów:** Poprawiono błąd w `dashboard.js`, gdzie kod oczekiwał pola `alerts_generated`, podczas gdy API zwracało `alerts`. Przycisk "Logi" teraz poprawnie zmienia kolor na czerwony po wykryciu zagrożenia.
+
+## 6. Architektura i Przepływ Danych (Jak to działa?)
+
+System Mini-SIEM działa w cyklu **ETL (Extract, Transform, Load)** z elementami analizy w czasie rzeczywistym.
+
+### Krok 1: Konfiguracja (Control Plane)
+Zarządzanie zasobami odbywa się poprzez REST API, zabezpieczone dekoratorem `@login_required`.
+* **Frontend:** `admin.js` wysyła żądania JSON (`fetch`) do API.
+* **Backend (Assets):** Plik `app/blueprints/api/hosts.py` -> endpoint `POST /hosts` zapisuje obiekt `Host` w bazie.
+* **Backend (Threat Intel):** Plik `app/blueprints/api/hosts.py` -> endpoint `POST /ips` zapisuje obiekt `IPRegistry` (czarna lista).
+
+### Krok 2: Ekstrakcja Danych (The ETL Controller)
+Proces jest inicjowany przez użytkownika, ale sterowany przez backend.
+* **Trigger:** `dashboard.js` wywołuje endpoint `POST /hosts/<id>/logs`.
+* **Controller:** Funkcja `fetch_logs(host_id)` w `api/hosts.py` pełni rolę orkiestratora ETL.
+* **State Management:** Kontroler sprawdza tabelę `LogSource` (model SQL). Pobiera wartość `last_fetch`, aby zażądać od kolektora tylko logów nowszych niż ostatnie sprawdzenie (logika przyrostowa).
+* **Extract Logic:**
+    * Klasa `RemoteClient` (`app/services/remote_client.py`) nawiązuje połączenie SSH.
+    * Klasa `LogCollector` (`app/services/log_collector.py`) wykonuje zdalną komendę (np. `journalctl -o json`).
+
+### Krok 3: Transformacja i Trwałość (Data Engineering)
+Surowe dane są parsowane i utrwalane przed analizą.
+* **Transform:** Metoda `LogCollector._parse_linux_message` używa wyrażeń regularnych (zdefiniowanych w słowniku `LINUX_PATTERNS`), aby przekształcić tekstowy log w ustandaryzowany słownik Python (`alert_type`, `source_ip`, `user`).
+* **Load (Forensics):** Klasa `DataManager` zapisuje listę słowników bezpośrednio do pliku **Parquet** w katalogu `/storage`.
+* **Metadata:** Kontroler `api/hosts.py` tworzy wpis w tabeli `LogArchive` (powiązanie: `host_id` <-> `filename`), rejestrując dowód w bazie danych.
+
+### Krok 4: Silnik Analityczny (SIEM Core)
+Logika wykrywania zagrożeń jest odseparowana od pobierania danych.
+* **Engine:** Plik `app/services/log_analyzer.py`.
+* **Input:** Metoda `analyze_parquet(filename)` ładuje plik Parquet do **Pandas DataFrame** (wysoka wydajność filtrowania).
+* **Logic (Static):** Filtrowanie wierszy gdzie `alert_type` in `['FAILED_LOGIN', 'SUDO_USAGE', ...]`.
+* **Logic (Dynamic/CTI):** Iteracja po wykrytych incydentach i sprawdzanie `IPRegistry.query.filter_by(ip=source_ip)`.
+    * Jeśli `status == 'BANNED'` -> Ustawia `severity='CRITICAL'`.
+    * Jeśli IP nie istnieje -> Dodaje je do bazy jako `UNKNOWN` (automatyczne uczenie).
+* **Output:** Zapis obiektów `Alert` do bazy SQL.
+
+### ✅ A. Bezpieczeństwo (Security First)
+* **Hashowanie haseł:** [x] Zaimplementowano `werkzeug.security` (PBKDF2+SHA256). Hasła nie są przechowywane jawnym tekstem.
+* **Ochrona API:** [x] Wszystkie endpointy (`GET`, `POST`, `PUT`, `DELETE`) w `api/hosts.py` chronione dekoratorem `@login_required`.
+* **Defense in Depth:** [x] Ochrona CSRF w formularzach (`hidden_tag`) oraz bezpieczne komunikaty błędów logowania.
+
+### ✅ B. Architektura i Logika (SIEM & Forensics)
+* **Informatyka Śledcza:** [x] Surowe logi są zapisywane do plików **Parquet** (folder `storage/`) przed analizą. Zachowano ciągłość dowodową.
+* **Threat Intelligence:** [x] Silnik `LogAnalyzer` automatycznie koreluje IP z bazą `IPRegistry`.
+    * Status `BANNED` -> Alert `CRITICAL`.
+    * Nowe IP -> Automatyczne dodanie jako `UNKNOWN`.
+* **ETL & Log Collector:** [x] Zaimplementowano pobieranie przyrostowe (`last_fetch_time`) oraz regexy obsługujące logi systemowe Linux (SSH/Sudo) i Windows (EventID 4625).
+
+### ❌ D. Zadania Dodatkowe ("Gwiazdki") - Niezrealizowane
+* [ ] Cross-Host Correlation (korelacja ataków między różnymi hostami).
+* [ ] Wykresy statystyczne (Chart.js) na Dashboardzie.
+* [ ] Dynamiczny tryb ciemny (Dark Mode).
+* [ ] Pełne zabezpieczenie CSRF dla zapytań API (fetch).
