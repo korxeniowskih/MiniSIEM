@@ -17,3 +17,6 @@ __pycache__/
 test.py
 
 storage/
+
+# Archived / local docs
+README_old2.md
